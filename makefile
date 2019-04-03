@@ -1,12 +1,15 @@
 
 all: server client
 
-server:
+bin:
+	mkdir bin
+
+server: bin
 	gcc src/server.c -o bin/server
 
-client:
+client: bin
 	gcc src/client.c -o bin/client
 
 clean:
-	rm client
-	rm server
+	rm -f bin/client
+	rm -f bin/server
