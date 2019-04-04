@@ -1,6 +1,9 @@
 
-# Binary Files
 *.o
 client
 server
+a.out
+
+*.swp
+test.cpp
 
