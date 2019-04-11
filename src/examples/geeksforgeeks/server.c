@@ -24,13 +24,16 @@ int main(int argc, char const *argv[])
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
-       
+    
+    // This returns an error on mac, but not linux. It is non-fatal,
+    // and if I comment it out nothing seems to happen.
+    // 
     // Forcefully attaching socket to the port 8080 
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, 
                                                   &opt, sizeof(opt)))
     { 
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
+        //perror("setsockopt");
+        //exit(EXIT_FAILURE);
     }
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
