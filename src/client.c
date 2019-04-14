@@ -97,19 +97,17 @@ void download(int sock) {
     
     char buf[BUFSIZ];
     read(sock, buf, BUFSIZ);
-    FILE* file = fopen(buf, "w");
+    FILE* file = fopen(buf, "wb");
     if (file) {
         int fd = fileno(file);
-        int cpy = dup(1);
-        dup2(fd, 1);
-        while (!equals(buf, "done")) {
+        char bytes_read[BUFSIZ];
+        int n = 0;
+        do {
+            read(sock, bytes_read, BUFSIZ);
+            n = atoi(bytes_read);
             read(sock, buf, BUFSIZ);
-            //printf("%s", buf);
-            // Writing did not work.. so I'm printing it!
-            write(fd, buf, BUFSIZ);
-            //fwrite(buf, sizeof(char), BUFSIZ, file);
-        }
-        dup2(cpy, 1);
+            fwrite(buf, 1, n, file);
+        } while (n == BUFSIZ);
         fclose(file);
         close(fd);
     }

@@ -27,14 +27,19 @@ bool prefix(const char *pre, const char *str) {
 void download(int sock, const char* src, const char* dst) {
 
     char buf[BUFSIZ];
-    FILE* file = fopen(src, "r");
+    FILE* file = fopen(src, "rb");
     if (file) {
         write(sock, "download", BUFSIZ);
         write(sock, dst, BUFSIZ);
-        while (fgets(buf, BUFSIZ, file) != NULL) {
+        
+        int n = fread(buf, 1, BUFSIZ, file);
+        do {
+            char bytes_read[BUFSIZ];
+            sprintf(bytes_read, "%d", n);
+            write(sock, bytes_read, BUFSIZ);
             write(sock, buf, BUFSIZ);
-        }
-        write(sock, "done", BUFSIZ);
+        } while ((n = fread(buf, 1, BUFSIZ, file)) != 0);
+        printf("exited server loop");
         fclose(file);
     }
 }
