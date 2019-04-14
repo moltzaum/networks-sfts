@@ -24,27 +24,46 @@ bool prefix(const char *pre, const char *str) {
 }
 
 //  here ---> sock 
-void download(int sock, const char* filename) {
+void download(int sock, const char* src, const char* dst) {
+
+    char buf[BUFSIZ];
+    char bytes_read[BUFSIZ];
     
+    FILE* file = fopen(src, "rb");
+    if (file) {
+        write(sock, "download", BUFSIZ);
+        write(sock, dst, BUFSIZ);
+        
+        int n = fread(buf, 1, BUFSIZ, file);
+        do {
+            sprintf(bytes_read, "%d", n);
+            write(sock, bytes_read, BUFSIZ);
+            write(sock, buf, BUFSIZ);
+        } while ((n = fread(buf, 1, BUFSIZ, file)) != 0);
+        printf("exited server loop");
+        fclose(file);
+    }
 }
 
 //  here <--- sock
-void upload(int sock, const char* filename) {
+void upload(int sock, const char* src, const char* dst) {
+    printf("DEBUG: inside upload!!\n");
     
+    write(sock, "none", BUFSIZ);
 }
 
 void runCommand(int sock, const char* cmd) {
     
     char buf[BUFSIZ] = {};
-    FILE* out = popen(cmd, "r");
-    if (out == NULL) { // error..
+    FILE* result = popen(cmd, "r");
+    if (result == NULL) { // error..
         return;
     }
     write(sock, "print", BUFSIZ);
-    while (fgets(buf, BUFSIZ, out) != NULL) 
+    while (fgets(buf, BUFSIZ, result) != NULL) 
         write(sock, buf, BUFSIZ);
     write(sock, "done", BUFSIZ);
-    pclose(out);
+    pclose(result);
 }
 
 void* client_handler(void *vargp) {
@@ -62,25 +81,17 @@ void* client_handler(void *vargp) {
         memset(cmd, 0, BUFSIZ); // loop reset
         printf("DEBUG: The line is: '%s'\n", buf);
         
-        if (equals("log", buf)) {
-            read(sock, buf, BUFSIZ);
-            printf("DEBUG: log: %s\n", buf);
-            continue;
-        }
-        
         char* args = strpbrk(buf, " ");
         
         if (equals("catalog", buf) || prefix("catalog ", buf)) { 
-            //strcpy(cmd, "ls");
             // Allows for args. I should sanitize the input
+            //strcpy(cmd, "ls");
             //if (args) strcat(cmd, args);
             //runCommand(sock, cmd);
             runCommand(sock, "ls");
             continue;
             
         } else if (equals("spwd", buf)) {
-            //strcpy(cmd, "pwd");
-            //runCommand(sock, cmd);
             runCommand(sock, "pwd");
             continue;
         }
@@ -93,31 +104,42 @@ void* client_handler(void *vargp) {
             exit(0);
         }
          
-        
         // We only expect two arguments
-        // If I get a bus error, change char* to char[] for args?
         char* src = strtok(args, " ");
         char* dst = strtok(NULL, " ");
+        char* trd = strtok(NULL, " ");
         
-        printf("src: %s\n", src);
-        printf("dst: %s\n", dst);
+        const char* usage; 
+        typedef void transfer_func(int, char*, char*);
+        void (*transfer)(int, char*, char*);
         
         if (prefix("download", buf)) {
-            //download(sock, );
-            continue;
+            transfer = (transfer_func*) &download;
+            usage = "usage: download <src> <dst>\n"; 
              
         } else if (prefix("upload", buf)) {
-            //upload(sock, );
+            transfer = (transfer_func*) &upload;
+            usage = "usage: upload <src> <dst>\n"; 
+            
+        } else if (equals("", buf)) {
+            write(sock, "none", BUFSIZ);
             continue;
             
         } else {
-            const char* msg = "error: command not recognized\n";
             write(sock, "print", BUFSIZ);
-            write(sock, msg, BUFSIZ);
-            write(sock, cmd, BUFSIZ);
+            write(sock, "error: command not recognized\n", BUFSIZ);
             write(sock, "done", BUFSIZ);
             continue;
         }
+        
+        // Incorrect arguments to transfer function
+        if (src == NULL || dst == NULL || trd != NULL) {
+            write(sock, "print", BUFSIZ);
+            write(sock, usage, BUFSIZ);
+            write(sock, "done", BUFSIZ);
+            continue;
+        }
+        transfer(sock, src, dst);
     }
     
     return NULL;

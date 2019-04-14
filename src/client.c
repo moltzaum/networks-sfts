@@ -93,13 +93,36 @@ int main(int argc, char const *argv[]) {
 }
 
 //  here <--- sock
-void download(int sock, const char* filename) {
-
+void download(int sock) {
+    
+    char buf[BUFSIZ];
+    char bytes_read[BUFSIZ];
+    
+    read(sock, buf, BUFSIZ);
+    FILE* file = fopen(buf, "wb");
+    
+    if (file) {
+        int fd = fileno(file);
+        int n = 0;
+        do {
+            read(sock, bytes_read, BUFSIZ);
+            n = atoi(bytes_read);
+            read(sock, buf, BUFSIZ);
+            fwrite(buf, 1, n, file);
+        } while (n == BUFSIZ);
+        fclose(file);
+        close(fd);
+    }
 }
 
 //  here ---> sock
-void upload(int sock, const char* filename) {
+void upload(int sock) {
 
+}
+
+ssize_t line_prompt(char** line, size_t* len, FILE* stream) {
+    printf("> ");
+    return getline(line, len, stream); 
 }
 
 void input_loop(int sock) {
@@ -108,15 +131,30 @@ void input_loop(int sock) {
     size_t len = 0;
     ssize_t n;
     
-    while ((n = getline(&line, &len, stdin) != -1)) {
+    while ((n = line_prompt(&line, &len, stdin) != -1)) {
         
         // getline includes newline in result string 
         line[strlen(line)-1] = '\0';
+
+        if (equals(line, "ls")) {
+            system("ls");
+            continue;
+        }
+
+        if (equals(line, "pwd")) {
+            system("pwd"); 
+            continue;
+        }
+
         write(sock, line, len);
         
         // What is the action to perform?
         read(sock, buf, BUFSIZ);
         
+        if (equals(buf, "none")) {
+            continue;
+        }
+
         // print is used for either an error or information
         // since we never quit on an error, we make no distinction
         if (equals(buf, "print")) {
@@ -135,27 +173,21 @@ void input_loop(int sock) {
             return;
         }
         
-        if (prefix("download", line)) {
-            read(sock, buf, BUFSIZ);
-            download(sock, buf);
+        printf("the line is %s\n", line);
+        if (equals("download", buf)) {
+            download(sock);
             continue;
         }
         
-        if (prefix("upload", line)) {
-            read(sock, buf, BUFSIZ);
-            upload(sock, buf);
+        if (equals("upload", buf)) {
+            upload(sock);
             continue;
         }
         
         // The server sent a bad response
         // Let the server know it was a bad response
         printf("error: invalid response from server\n");
-        printf("%s", buf);
-        const char* msg = "invalid action to perform";
-        const char* log = "log";
-        printf("DEBUG: sent log\n");
-        write(sock, log, BUFSIZ);
-        write(sock, msg, BUFSIZ);
+        printf("DEBUG: %s", buf);
         
     }
     free(line);
