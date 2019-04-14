@@ -1,9 +1,9 @@
 
-#include <stdio.h> 
+#include <stdio.h>
 #include <stdlib.h> 
-#include <stdbool.h> 
 #include <unistd.h> 
-#include <string.h> // strlen
+#include <string.h> 
+#include <stdbool.h> 
 
 #include <pthread.h>
 #include <sys/socket.h> 

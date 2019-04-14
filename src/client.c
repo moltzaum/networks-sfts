@@ -1,9 +1,9 @@
 
 #include <stdio.h>  // perror, print, fgets
 #include <stdlib.h> // exit, atoi
-#include <stdbool.h>
 #include <unistd.h> // read, write
-#include <string.h> // ?
+#include <string.h> // strlen
+#include <stdbool.h>
 #include <errno.h>
 
 #include <sys/socket.h> 
