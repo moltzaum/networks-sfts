@@ -93,6 +93,20 @@ int main(int argc, char const *argv[]) {
     return 0;
 }
 
+bool send_permissions(int sock, int fd) {
+        char buf[BUFSIZ];
+        struct stat s;
+
+        fstat(fd, &s);
+        sprintf(buf, "%d", s.st_uid);
+        write(sock, buf, BUFSIZ);
+        sprintf(buf, "%d", s.st_gid);
+        write(sock, buf, BUFSIZ);
+        sprintf(buf, "%d", s.st_mode);
+        write(sock, buf, BUFSIZ);
+        return true;
+}
+
 bool get_permissions(int sock, int fd) {
     
     char buf[BUFSIZ];
@@ -108,6 +122,10 @@ bool get_permissions(int sock, int fd) {
     fchown(fd, uid, gid);
     fchmod(fd, mode);
     return true;
+}
+
+void send_ok(int sock) {
+    write(sock, "ok", BUFSIZ);
 }
 
 //  here <--- sock
@@ -137,6 +155,25 @@ void download(int sock) {
 
 //  here ---> sock
 void upload(int sock) {
+    
+    char buf[BUFSIZ];
+    char bytes_read[BUFSIZ];
+    
+    read(sock, buf, BUFSIZ);
+    FILE* file = fopen(buf, "rb");
+    if (file) {
+        send_permissions(sock, fileno(file));
+        
+        int n = fread(buf, 1, BUFSIZ, file);
+        do {
+            sprintf(bytes_read, "%d", n);
+            write(sock, bytes_read, BUFSIZ);
+            write(sock, buf, BUFSIZ);
+        } while ((n = fread(buf, 1, BUFSIZ, file)) != 0);
+        fclose(file);
+    } else {
+        printf("file does not exist");
+    }
 
 }
 

@@ -38,6 +38,23 @@ bool send_permissions(int sock, int fd) {
         return true;
 }
 
+bool get_permissions(int sock, int fd) {
+
+    char buf[BUFSIZ];
+    int gid, uid, mode;
+
+    read(sock, buf, BUFSIZ);
+    gid = atoi(buf);
+    read(sock, buf, BUFSIZ);
+    uid = atoi(buf);
+    read(sock, buf, BUFSIZ);
+    mode = atoi(buf);
+
+    fchown(fd, uid, gid);
+    fchmod(fd, mode);
+    return true;
+}
+
 //  here ---> sock 
 void download(int sock, const char* src, const char* dst) {
 
@@ -56,16 +73,33 @@ void download(int sock, const char* src, const char* dst) {
             write(sock, bytes_read, BUFSIZ);
             write(sock, buf, BUFSIZ);
         } while ((n = fread(buf, 1, BUFSIZ, file)) != 0);
-        printf("exited server loop");
         fclose(file);
     }
 }
 
 //  here <--- sock
 void upload(int sock, const char* src, const char* dst) {
-    printf("DEBUG: inside upload!!\n");
     
-    write(sock, "none", BUFSIZ);
+    char buf[BUFSIZ];
+    char bytes_read[BUFSIZ];
+    
+    FILE* file = fopen(dst, "wb");
+    if (file) {
+        write(sock, "upload", BUFSIZ);
+        write(sock, src, BUFSIZ);
+        get_permissions(sock, fileno(file));
+        
+        int n = 0;
+        do {
+            read(sock, bytes_read, BUFSIZ);
+            n = atoi(bytes_read);
+            read(sock, buf, BUFSIZ);
+            fwrite(buf, 1, n, file);
+        } while (n == BUFSIZ);
+        fclose(file);
+    } else {
+        // when does this trigger?
+    }
 }
 
 void runCommand(int sock, const char* cmd) {
