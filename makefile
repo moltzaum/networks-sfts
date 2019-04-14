@@ -1,5 +1,6 @@
 
 all: server client
+	./bin/server
 
 bin:
 	mkdir bin

@@ -1,8 +1,9 @@
 
 #include <stdio.h> 
 #include <stdlib.h> 
+#include <stdbool.h> 
 #include <unistd.h> 
-#include <string.h>  // strlen
+#include <string.h> // strlen
 
 #include <pthread.h>
 #include <sys/socket.h> 
@@ -14,29 +15,117 @@ struct client_args {
     int sock;
 };
 
+bool equals(const char* str1, const char* str2) {
+    return strcmp(str1, str2) == 0;
+}
+
+bool prefix(const char *pre, const char *str) {
+    return strncmp(pre, str, strlen(pre)) == 0;
+}
+
+//  here ---> sock 
+void download(int sock, const char* filename) {
+    
+}
+
+//  here <--- sock
+void upload(int sock, const char* filename) {
+    
+}
+
+void runCommand(int sock, const char* cmd) {
+    
+    char buf[BUFSIZ] = {};
+    FILE* out = popen(cmd, "r");
+    if (out == NULL) { // error..
+        return;
+    }
+    write(sock, "print", BUFSIZ);
+    while (fgets(buf, BUFSIZ, out) != NULL) 
+        write(sock, buf, BUFSIZ);
+    write(sock, "done", BUFSIZ);
+    pclose(out);
+}
+
 void* client_handler(void *vargp) {
     
-    // TODO: Loop input
-    // Call other functions for options
+    struct client_args* handler_args = (struct client_args*) vargp;
+    int sock = handler_args->sock;
+    int n;
     
-    struct client_args* args = (struct client_args*) vargp;
-    int sock = args->sock;
-    int valread;
+    char* args;
+    char buf[BUFSIZ] = {};
+    char cmd[BUFSIZ] = {};
     
-    char buffer[1024] = {0};
-    char *hello = "Hello from server";
-    
-    valread = read(sock, buffer, 1024);
-    printf("%s\n", buffer);
-    send(sock, hello, strlen(hello), 0 );
-    printf("Hello message sent\n");
+    while ((n = read(sock, buf, BUFSIZ) != -1)) {
+         
+        memset(cmd, 0, BUFSIZ); // loop reset
+        printf("DEBUG: The line is: '%s'\n", buf);
+        
+        if (equals("log", buf)) {
+            read(sock, buf, BUFSIZ);
+            printf("DEBUG: log: %s\n", buf);
+            continue;
+        }
+        
+        char* args = strpbrk(buf, " ");
+        
+        if (equals("catalog", buf) || prefix("catalog ", buf)) { 
+            //strcpy(cmd, "ls");
+            // Allows for args. I should sanitize the input
+            //if (args) strcat(cmd, args);
+            //runCommand(sock, cmd);
+            runCommand(sock, "ls");
+            continue;
+            
+        } else if (equals("spwd", buf)) {
+            //strcpy(cmd, "pwd");
+            //runCommand(sock, cmd);
+            runCommand(sock, "pwd");
+            continue;
+        }
+        
+        if (equals("bye", buf)) {
+            write(sock, "print", BUFSIZ);
+            write(sock, "File copy server is down!", BUFSIZ);
+            write(sock, "done", BUFSIZ);
+            close(sock);
+            exit(0);
+        }
+         
+        
+        // We only expect two arguments
+        // If I get a bus error, change char* to char[] for args?
+        char* src = strtok(args, " ");
+        char* dst = strtok(NULL, " ");
+        
+        printf("src: %s\n", src);
+        printf("dst: %s\n", dst);
+        
+        if (prefix("download", buf)) {
+            //download(sock, );
+            continue;
+             
+        } else if (prefix("upload", buf)) {
+            //upload(sock, );
+            continue;
+            
+        } else {
+            const char* msg = "error: command not recognized\n";
+            write(sock, "print", BUFSIZ);
+            write(sock, msg, BUFSIZ);
+            write(sock, cmd, BUFSIZ);
+            write(sock, "done", BUFSIZ);
+            continue;
+        }
+    }
     
     return NULL;
 }
 
 int main(int argc, char const *argv[]) { 
     
-    // TODO: Make port be a command line argument
+    // TODO: Make port be a cmd line argument
     
     int server_fd;
     struct sockaddr_in address;
@@ -74,8 +163,8 @@ int main(int argc, char const *argv[]) {
     int sock;
     pthread_t tid;
     struct client_args args;
-    handle_next_client:
     
+    handle_next_client:
     if ((sock = accept(THIS, (socklen_t*) &len)) < 0) { 
         perror("accept");
         exit(EXIT_FAILURE);
@@ -87,10 +176,4 @@ int main(int argc, char const *argv[]) {
     
     return 0;
 }
-
-// This waits for the thread (I think). I don't
-// this this is needed since I'm not computing
-// anything.
-//void* status
-//pthread_join(tid, &status);
 

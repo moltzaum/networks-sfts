@@ -1,6 +1,7 @@
 
 #include <stdio.h>  // perror, print, fgets
 #include <stdlib.h> // exit, atoi
+#include <stdbool.h>
 #include <unistd.h> // read, write
 #include <string.h> // ?
 #include <errno.h>
@@ -11,24 +12,32 @@
 
 #define PORT 1042
 
+void input_loop(int sock);
+
 // Potential helper method?
 void error(char *msg) {
     perror(msg);
     exit(1);
 }
 
+bool equals(const char* str1, const char* str2) {
+    return strcmp(str1, str2) == 0;
+}
+
+bool prefix(const char* pre, const char* str) {
+    return strncmp(pre, str, strlen(pre)) == 0;
+}
+
 int main(int argc, char const *argv[]) { 
     
-      struct sockaddr_in address;
-      struct sockaddr_in serv_addr;
-      int sock = 0, valread;
-      char *hello = "Hello from client";
-      char buffer[1024] = {0};
+    struct sockaddr_in address;
+    struct sockaddr_in serv_addr;
+    int sock = 0;
+    char buffer[1024] = {0};
     
     /*
     int portno;
     struct hostent *server;
-    // Usage Statement
     if (argc < 3) {
        fprintf(stderr,"usage %s hostname port\n", argv[0]);
        exit(0);
@@ -43,7 +52,8 @@ int main(int argc, char const *argv[]) {
     if (server == NULL) {
         fprintf(stderr,"ERROR, no such host\n");
         exit(0);
-    }*/
+    }
+    */
     // server->h_name is server hostname and can be used in inet_pton
     // server->h_addr is server address and can be set to serv_addr.sin_addr.s_addr
     
@@ -73,34 +83,87 @@ int main(int argc, char const *argv[]) {
     // END SERV_ADDR STUFF
     
     // Connect to sock
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) { 
+    if (connect(sock, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0) { 
         printf("Connection Failed \n");
         return -1;
     }
     
-    // TODO: Create an input loop
-    
-    write(sock, hello, strlen(hello));
-    printf("Hello message sent\n");
-    valread = read(sock , buffer, 1024);
-    
-    // I can get the value returned from eax for some cases
-    // This is not the case for odd return sizes
-    // It does not work on Windows (I think)
-    // It does not work on inline functions
-    int i;
-    asm("movl %%eax, %0" : "=r" (i));
-    printf("The value of eax is %d\n", i);
-    //printf("The number of bytes read is %d\n", valread);
-    //
-    // SetErrorTestType(INT_SENTINEL)
-    // SetErrorTestType(ERRNO)
-    //    might be able to set to 0 after handling
-    
-    // valread = bytes read, errno is set to != 0
-    // for safety, check valread to know if errno was updated instead of
-    // trying to say errno = 0 before each function that _may_ update the errno
-    // I can simply use perror, or use strerror(errno) in a formatted string
-    printf("%s\n", buffer);
+    input_loop(sock);
     return 0;
 }
+
+//  here <--- sock
+void download(int sock, const char* filename) {
+
+}
+
+//  here ---> sock
+void upload(int sock, const char* filename) {
+
+}
+
+void input_loop(int sock) {
+    char buf[BUFSIZ];
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t n;
+    
+    while ((n = getline(&line, &len, stdin) != -1)) {
+        
+        // getline includes newline in result string 
+        line[strlen(line)-1] = '\0';
+        write(sock, line, len);
+        
+        // What is the action to perform?
+        read(sock, buf, BUFSIZ);
+        
+        // print is used for either an error or information
+        // since we never quit on an error, we make no distinction
+        if (equals(buf, "print")) {
+            
+            continue_print:
+                read(sock, buf, BUFSIZ);
+                if (equals(buf, "done")) 
+                    continue;
+                printf("%s", buf);
+            goto continue_print;
+        } 
+        
+        if (equals(buf, "bye")) {
+            printf("Internet copy client is down!");
+            // DEALLOCATE RESOURCES!!
+            return;
+        }
+        
+        if (prefix("download", line)) {
+            read(sock, buf, BUFSIZ);
+            download(sock, buf);
+            continue;
+        }
+        
+        if (prefix("upload", line)) {
+            read(sock, buf, BUFSIZ);
+            upload(sock, buf);
+            continue;
+        }
+        
+        // The server sent a bad response
+        // Let the server know it was a bad response
+        printf("error: invalid response from server\n");
+        printf("%s", buf);
+        const char* msg = "invalid action to perform";
+        const char* log = "log";
+        printf("DEBUG: sent log\n");
+        write(sock, log, BUFSIZ);
+        write(sock, msg, BUFSIZ);
+        
+    }
+    free(line);
+    
+}
+
+//int i;
+//asm("movl %%eax, %0" : "=r" (i));
+//printf("The value of eax is %d\n", i);
+// SetErrorTestType(INT_SENTINEL)
+// SetErrorTestType(ERRNO)
