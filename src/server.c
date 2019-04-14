@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <sys/socket.h> 
 #include <netinet/in.h> 
+#include <sys/stat.h>
 
 #define PORT 1042
 
@@ -23,6 +24,20 @@ bool prefix(const char *pre, const char *str) {
     return strncmp(pre, str, strlen(pre)) == 0;
 }
 
+bool send_permissions(int sock, int fd) {
+        char buf[BUFSIZ];
+        struct stat s;
+        
+        fstat(fd, &s);
+        sprintf(buf, "%d", s.st_uid);
+        write(sock, buf, BUFSIZ);
+        sprintf(buf, "%d", s.st_gid);
+        write(sock, buf, BUFSIZ);
+        sprintf(buf, "%d", s.st_mode);
+        write(sock, buf, BUFSIZ);
+        return true;
+}
+
 //  here ---> sock 
 void download(int sock, const char* src, const char* dst) {
 
@@ -33,6 +48,7 @@ void download(int sock, const char* src, const char* dst) {
     if (file) {
         write(sock, "download", BUFSIZ);
         write(sock, dst, BUFSIZ);
+        send_permissions(sock, fileno(file));
         
         int n = fread(buf, 1, BUFSIZ, file);
         do {

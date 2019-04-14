@@ -9,6 +9,7 @@
 #include <sys/socket.h> 
 #include <netinet/in.h> 
 #include <arpa/inet.h>
+#include <sys/stat.h>
 
 #define PORT 1042
 
@@ -92,6 +93,23 @@ int main(int argc, char const *argv[]) {
     return 0;
 }
 
+bool get_permissions(int sock, int fd) {
+    
+    char buf[BUFSIZ];
+    int gid, uid, mode;
+    
+    read(sock, buf, BUFSIZ);
+    gid = atoi(buf);
+    read(sock, buf, BUFSIZ);
+    uid = atoi(buf);
+    read(sock, buf, BUFSIZ);
+    mode = atoi(buf);
+    
+    fchown(fd, uid, gid);
+    fchmod(fd, mode);
+    return true;
+}
+
 //  here <--- sock
 void download(int sock) {
     
@@ -103,6 +121,8 @@ void download(int sock) {
     
     if (file) {
         int fd = fileno(file);
+        get_permissions(sock, fd);
+        
         int n = 0;
         do {
             read(sock, bytes_read, BUFSIZ);
