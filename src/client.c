@@ -92,14 +92,6 @@ int main(int argc, char const *argv[]) {
     return 0;
 }
 
-// TODO: check errors
-
-//do {
-//    read(sock, buf, BUFSIZ);
-//    printf("%s", buf);
-//    read(sock, buf, BUFSIZ);
-//} while (!equals(buf, "done"));
-
 //  here <--- sock
 void download(int sock, const char* filename) {
 
@@ -126,7 +118,7 @@ void input_loop(int sock) {
         read(sock, buf, BUFSIZ);
         
         // print is used for either an error or information
-        // since we never quit on an error, there we make no distinction
+        // since we never quit on an error, we make no distinction
         if (equals(buf, "print")) {
             
             continue_print:
@@ -162,8 +154,8 @@ void input_loop(int sock) {
         const char* msg = "invalid action to perform";
         const char* log = "log";
         printf("DEBUG: sent log\n");
-        write(sock, log, strlen(log));
-        write(sock, msg, strlen(msg));
+        write(sock, log, BUFSIZ);
+        write(sock, msg, BUFSIZ);
         
     }
     free(line);

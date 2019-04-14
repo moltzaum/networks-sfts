@@ -33,6 +33,20 @@ void upload(int sock, const char* filename) {
     
 }
 
+void runCommand(int sock, const char* cmd) {
+    
+    char buf[BUFSIZ] = {};
+    FILE* out = popen(cmd, "r");
+    if (out == NULL) { // error..
+        return;
+    }
+    write(sock, "print", BUFSIZ);
+    while (fgets(buf, BUFSIZ, out) != NULL) 
+        write(sock, buf, BUFSIZ);
+    write(sock, "done", BUFSIZ);
+    pclose(out);
+}
+
 void* client_handler(void *vargp) {
     
     struct client_args* handler_args = (struct client_args*) vargp;
@@ -40,71 +54,45 @@ void* client_handler(void *vargp) {
     int n;
     
     char* args;
-    bool doCmd = false;
     char buf[BUFSIZ] = {};
     char cmd[BUFSIZ] = {};
     
-    #define PRINT write(sock, "print", BUFSIZ)
-    #define DONE write(sock, "done", BUFSIZ)
-    
     while ((n = read(sock, buf, BUFSIZ) != -1)) {
          
-        // Reset variables
-        doCmd = false;
-        memset(cmd, 0, BUFSIZ);
-        
+        memset(cmd, 0, BUFSIZ); // loop reset
         printf("DEBUG: The line is: '%s'\n", buf);
         
         if (equals("log", buf)) {
             read(sock, buf, BUFSIZ);
             printf("DEBUG: log: %s\n", buf);
+            continue;
         }
         
-        if (equals("catalog", buf) || prefix("catalog ", buf)) {
-            strcpy(cmd, "ls");
-            doCmd = true;
-             
-        } else if (equals("ls", buf) || prefix("ls ", buf)) {
-            strcpy(cmd, "ls");
-            doCmd = true;
-             
-        } else if (equals("spwd", buf) || prefix("spwd ", buf)) {
-            strcpy(cmd, "pwd");
-            doCmd = true;
-             
-        } else if (equals("bye", buf) || prefix("bye ", buf)) {
-            PRINT;
+        char* args = strpbrk(buf, " ");
+        
+        if (equals("catalog", buf) || prefix("catalog ", buf)) { 
+            //strcpy(cmd, "ls");
+            // Allows for args. I should sanitize the input
+            //if (args) strcat(cmd, args);
+            //runCommand(sock, cmd);
+            runCommand(sock, "ls");
+            continue;
+            
+        } else if (equals("spwd", buf)) {
+            //strcpy(cmd, "pwd");
+            //runCommand(sock, cmd);
+            runCommand(sock, "pwd");
+            continue;
+        }
+        
+        if (equals("bye", buf)) {
+            write(sock, "print", BUFSIZ);
             write(sock, "File copy server is down!", BUFSIZ);
-            DONE;
+            write(sock, "done", BUFSIZ);
             close(sock);
             exit(0);
         }
          
-        // Separate the command from the args, then
-        // concatenate the args to the "real" command
-        // BTW, this is vulnerable to attack. I should sanitize the input
-        args = strpbrk(buf, " ");
-        if (args && doCmd) {
-            strcat(cmd, args);
-        }
-        
-        // Put into Function?
-        // cmd, buf
-        printf("command is: %s", cmd);
-        if (doCmd) {
-            printf("DEBUG: The command is: %s\n", cmd);
-            FILE* out;
-            if ((out = popen(cmd, "r")) != NULL) {
-                PRINT;
-                while (fgets(buf, BUFSIZ, out) != NULL) {
-                    printf("DEBUG: %s", buf);
-                    write(sock, buf, BUFSIZ);
-                }
-                DONE;
-            } 
-            pclose(out);
-            continue;
-        }
         
         // We only expect two arguments
         // If I get a bus error, change char* to char[] for args?
@@ -124,9 +112,10 @@ void* client_handler(void *vargp) {
             
         } else {
             const char* msg = "error: command not recognized\n";
-            PRINT;
+            write(sock, "print", BUFSIZ);
             write(sock, msg, BUFSIZ);
-            DONE;
+            write(sock, cmd, BUFSIZ);
+            write(sock, "done", BUFSIZ);
             continue;
         }
     }
@@ -174,7 +163,7 @@ int main(int argc, char const *argv[]) {
     int sock;
     pthread_t tid;
     struct client_args args;
-
+    
     handle_next_client:
     if ((sock = accept(THIS, (socklen_t*) &len)) < 0) { 
         perror("accept");
