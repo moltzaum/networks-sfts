@@ -10,96 +10,40 @@
 #include <netinet/in.h> 
 #include <sys/stat.h>
 
+#include "shared.h"
+
 #define PORT 1042
 
 struct client_args {
     int sock;
 };
 
-bool equals(const char* str1, const char* str2) {
-    return strcmp(str1, str2) == 0;
-}
-
-bool prefix(const char *pre, const char *str) {
-    return strncmp(pre, str, strlen(pre)) == 0;
-}
-
-bool send_permissions(int sock, int fd) {
-        char buf[BUFSIZ];
-        struct stat s;
-        
-        fstat(fd, &s);
-        sprintf(buf, "%d", s.st_uid);
-        write(sock, buf, BUFSIZ);
-        sprintf(buf, "%d", s.st_gid);
-        write(sock, buf, BUFSIZ);
-        sprintf(buf, "%d", s.st_mode);
-        write(sock, buf, BUFSIZ);
-        return true;
-}
-
-bool get_permissions(int sock, int fd) {
-
-    char buf[BUFSIZ];
-    int gid, uid, mode;
-
-    read(sock, buf, BUFSIZ);
-    gid = atoi(buf);
-    read(sock, buf, BUFSIZ);
-    uid = atoi(buf);
-    read(sock, buf, BUFSIZ);
-    mode = atoi(buf);
-
-    fchown(fd, uid, gid);
-    fchmod(fd, mode);
-    return true;
-}
-
 //  here ---> sock 
-void download(int sock, const char* src, const char* dst) {
-
-    char buf[BUFSIZ];
-    char bytes_read[BUFSIZ];
-    
+bool download(int sock, const char* src, const char* dst) {
     FILE* file = fopen(src, "rb");
     if (file) {
         write(sock, "download", BUFSIZ);
         write(sock, dst, BUFSIZ);
         send_permissions(sock, fileno(file));
-        
-        int n = fread(buf, 1, BUFSIZ, file);
-        do {
-            sprintf(bytes_read, "%d", n);
-            write(sock, bytes_read, BUFSIZ);
-            write(sock, buf, BUFSIZ);
-        } while ((n = fread(buf, 1, BUFSIZ, file)) != 0);
-        fclose(file);
+        read_file_write_sock(sock, file);
+    } else {
+        printf("DEBUG: server download file not found?\n");
     }
+    return file;
 }
 
 //  here <--- sock
-void upload(int sock, const char* src, const char* dst) {
-    
-    char buf[BUFSIZ];
-    char bytes_read[BUFSIZ];
-    
+bool upload(int sock, const char* src, const char* dst) {
     FILE* file = fopen(dst, "wb");
     if (file) {
         write(sock, "upload", BUFSIZ);
         write(sock, src, BUFSIZ);
         get_permissions(sock, fileno(file));
-        
-        int n = 0;
-        do {
-            read(sock, bytes_read, BUFSIZ);
-            n = atoi(bytes_read);
-            read(sock, buf, BUFSIZ);
-            fwrite(buf, 1, n, file);
-        } while (n == BUFSIZ);
-        fclose(file);
+        read_sock_write_file(sock, file);
     } else {
-        // when does this trigger?
+        printf("DEBUG: server upload file not found?\n");
     }
+    return file;
 }
 
 void runCommand(int sock, const char* cmd) {
@@ -120,21 +64,16 @@ void* client_handler(void *vargp) {
     
     struct client_args* handler_args = (struct client_args*) vargp;
     int sock = handler_args->sock;
-    int n;
-    
-    char* args;
     char buf[BUFSIZ] = {};
-    char cmd[BUFSIZ] = {};
     
-    while ((n = read(sock, buf, BUFSIZ) != -1)) {
+    while (read(sock, buf, BUFSIZ) != -1) {
          
-        memset(cmd, 0, BUFSIZ); // loop reset
         printf("DEBUG: The line is: '%s'\n", buf);
-        
         char* args = strpbrk(buf, " ");
         
         if (equals("catalog", buf) || prefix("catalog ", buf)) { 
             // Allows for args. I should sanitize the input
+            //char cmd[BUFSIZ] = {};
             //strcpy(cmd, "ls");
             //if (args) strcat(cmd, args);
             //runCommand(sock, cmd);
