@@ -1,8 +1,9 @@
 
 #include <stdio.h> 
 #include <stdlib.h> 
+#include <stdbool.h> 
 #include <unistd.h> 
-#include <string.h>  // strlen
+#include <string.h> // strlen
 
 #include <pthread.h>
 #include <sys/socket.h> 
@@ -14,29 +15,128 @@ struct client_args {
     int sock;
 };
 
+bool equals(const char* str1, const char* str2) {
+    return strcmp(str1, str2) == 0;
+}
+
+bool prefix(const char *pre, const char *str) {
+    return strncmp(pre, str, strlen(pre)) == 0;
+}
+
+//  here ---> sock 
+void download(int sock, const char* filename) {
+    
+}
+
+//  here <--- sock
+void upload(int sock, const char* filename) {
+    
+}
+
 void* client_handler(void *vargp) {
     
-    // TODO: Loop input
-    // Call other functions for options
+    struct client_args* handler_args = (struct client_args*) vargp;
+    int sock = handler_args->sock;
+    int n;
     
-    struct client_args* args = (struct client_args*) vargp;
-    int sock = args->sock;
-    int valread;
+    char* args;
+    bool doCmd = false;
+    char buf[BUFSIZ] = {};
+    char cmd[BUFSIZ] = {};
     
-    char buffer[1024] = {0};
-    char *hello = "Hello from server";
+    #define PRINT write(sock, "print", BUFSIZ)
+    #define DONE write(sock, "done", BUFSIZ)
     
-    valread = read(sock, buffer, 1024);
-    printf("%s\n", buffer);
-    send(sock, hello, strlen(hello), 0 );
-    printf("Hello message sent\n");
+    while ((n = read(sock, buf, BUFSIZ) != -1)) {
+         
+        // Reset variables
+        doCmd = false;
+        memset(cmd, 0, BUFSIZ);
+        
+        printf("DEBUG: The line is: '%s'\n", buf);
+        
+        if (equals("log", buf)) {
+            read(sock, buf, BUFSIZ);
+            printf("DEBUG: log: %s\n", buf);
+        }
+        
+        if (equals("catalog", buf) || prefix("catalog ", buf)) {
+            strcpy(cmd, "ls");
+            doCmd = true;
+             
+        } else if (equals("ls", buf) || prefix("ls ", buf)) {
+            strcpy(cmd, "ls");
+            doCmd = true;
+             
+        } else if (equals("spwd", buf) || prefix("spwd ", buf)) {
+            strcpy(cmd, "pwd");
+            doCmd = true;
+             
+        } else if (equals("bye", buf) || prefix("bye ", buf)) {
+            PRINT;
+            write(sock, "File copy server is down!", BUFSIZ);
+            DONE;
+            close(sock);
+            exit(0);
+        }
+         
+        // Separate the command from the args, then
+        // concatenate the args to the "real" command
+        // BTW, this is vulnerable to attack. I should sanitize the input
+        args = strpbrk(buf, " ");
+        if (args && doCmd) {
+            strcat(cmd, args);
+        }
+        
+        // Put into Function?
+        // cmd, buf
+        printf("command is: %s", cmd);
+        if (doCmd) {
+            printf("DEBUG: The command is: %s\n", cmd);
+            FILE* out;
+            if ((out = popen(cmd, "r")) != NULL) {
+                PRINT;
+                while (fgets(buf, BUFSIZ, out) != NULL) {
+                    printf("DEBUG: %s", buf);
+                    write(sock, buf, BUFSIZ);
+                }
+                DONE;
+            } 
+            pclose(out);
+            continue;
+        }
+        
+        // We only expect two arguments
+        // If I get a bus error, change char* to char[] for args?
+        char* src = strtok(args, " ");
+        char* dst = strtok(NULL, " ");
+        
+        printf("src: %s\n", src);
+        printf("dst: %s\n", dst);
+        
+        if (prefix("download", buf)) {
+            //download(sock, );
+            continue;
+             
+        } else if (prefix("upload", buf)) {
+            //upload(sock, );
+            continue;
+            
+        } else {
+            const char* msg = "error: command not recognized\n";
+            PRINT;
+            write(sock, msg, BUFSIZ);
+            DONE;
+            continue;
+        }
+    }
     
     return NULL;
 }
 
 int main(int argc, char const *argv[]) { 
     
-    // TODO: Make port be a command line argument
+    // TODO: Make port be a cmd line argument
     
     int server_fd;
     struct sockaddr_in address;
@@ -74,8 +174,8 @@ int main(int argc, char const *argv[]) {
     int sock;
     pthread_t tid;
     struct client_args args;
+
     handle_next_client:
-    
     if ((sock = accept(THIS, (socklen_t*) &len)) < 0) { 
         perror("accept");
         exit(EXIT_FAILURE);
@@ -87,10 +187,4 @@ int main(int argc, char const *argv[]) {
     
     return 0;
 }
-
-// This waits for the thread (I think). I don't
-// this this is needed since I'm not computing
-// anything.
-//void* status
-//pthread_join(tid, &status);
 
