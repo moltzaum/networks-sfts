@@ -6,7 +6,7 @@ bin:
 	mkdir bin
 
 server: bin
-	gcc -x c src/shared.c src/server.c -o bin/server
+	gcc -pthread -x c src/shared.c src/server.c -o bin/server
 
 client: bin
 	gcc -x c src/shared.c src/client.c -o bin/client
