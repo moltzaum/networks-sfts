@@ -22,21 +22,15 @@ int main(int argc, char const *argv[]) {
     struct sockaddr_in address;
     struct sockaddr_in serv_addr;
     int sock = 0;
-    char buffer[1024] = {0};
+    char buffer[1024] = {};
     
-    /*
-    int portno;
-    struct hostent *server;
-    if (argc < 3) {
-       fprintf(stderr,"usage %s hostname port\n", argv[0]);
-       exit(0);
+    if (argc < 2) {
+        fprintf(stderr, "usage: %s <hostname>", argv[0]);
+        exit(0);
     }
-    
+    /*
     // Fetch Port and Hostname from Args
-    // argv[1] can be ip
-    // argv[1] can be hostname
     // can hostname be something from /etc/hosts?
-    portno = atoi(argv[2]);
     server = gethostbyname(argv[1]);
     if (server == NULL) {
         fprintf(stderr,"ERROR, no such host\n");
@@ -64,7 +58,7 @@ int main(int argc, char const *argv[]) {
     // Note: inet_pton supports ipv4 and ipv6, but doesn't support ipv4
     // shorthand like inet_aton, which doesn't support ipv6.
     
-    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) { 
+    if (inet_pton(AF_INET, argv[1], &serv_addr.sin_addr) <= 0) { 
         printf("Invalid address/ Address not supported\n");
         return -1;
     }
@@ -113,7 +107,7 @@ bool upload(int sock) {
 
 ssize_t line_prompt(char** line, size_t* len, FILE* stream) {
     printf("> ");
-    return getline(line, len, stream); 
+    return getline(line, len, stream);
 }
 
 void input_loop(int sock) {
@@ -135,7 +129,7 @@ void input_loop(int sock) {
         }
         
         if (prefix(line, "pwd")) {
-            system("pwd"); 
+            system("pwd");
             continue;
         }
 
@@ -154,11 +148,11 @@ void input_loop(int sock) {
             
             continue_print:
                 read(sock, buf, BUFSIZ);
-                if (equals(buf, "done")) 
+                if (equals(buf, "done"))
                     continue;
                 printf("%s", buf);
             goto continue_print;
-        } 
+        }
         
         if (equals(buf, "bye")) {
             printf("Internet copy client is down!");
