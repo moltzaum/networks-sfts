@@ -72,12 +72,11 @@ void* client_handler(void *vargp) {
         char* args = strpbrk(buf, " ");
         
         if (equals("catalog", buf) || prefix("catalog ", buf)) { 
-            // Allows for args. I should sanitize the input
-            //char cmd[BUFSIZ] = {};
-            //strcpy(cmd, "ls");
-            //if (args) strcat(cmd, args);
-            //runCommand(sock, cmd);
-            runCommand(sock, "ls");
+            char cmd[BUFSIZ] = {};
+            strcpy(cmd, "ls $(echo '");
+            if (args) strcat(cmd, args);
+            strcat(cmd, "')");
+            runCommand(sock, cmd);
             continue;
             
         } else if (equals("spwd", buf)) {

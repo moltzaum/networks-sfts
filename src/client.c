@@ -126,13 +126,15 @@ void input_loop(int sock) {
         
         // getline includes newline in result string 
         line[strlen(line)-1] = '\0';
-
-        if (equals(line, "ls")) {
+        
+        // Here I do not care about input sanitization since we
+        // are on the client's computer.
+        if (prefix(line, "ls")) {
             system("ls");
             continue;
         }
-
-        if (equals(line, "pwd")) {
+        
+        if (prefix(line, "pwd")) {
             system("pwd"); 
             continue;
         }
