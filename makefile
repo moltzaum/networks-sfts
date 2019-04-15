@@ -6,10 +6,10 @@ bin:
 	mkdir bin
 
 server: bin
-	gcc src/shared.c src/server.c -o bin/server
+	gcc -x c src/shared.c src/server.c -o bin/server
 
 client: bin
-	gcc src/shared.c src/client.c -o bin/client
+	gcc -x c src/shared.c src/client.c -o bin/client
 
 clean:
 	rm -f bin/client
