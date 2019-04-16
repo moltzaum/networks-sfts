@@ -49,15 +49,28 @@ bool upload(int sock, const char* src, const char* dst) {
 void runCommand(int sock, const char* cmd) {
     
     char buf[BUFSIZ] = {};
+    memset(buf, '\0', BUFSIZ);
+     
+    printf("DEBUG: command: %s\n", cmd);
     FILE* result = popen(cmd, "r");
     if (result == NULL) { // error..
+        printf("error: opening the process");
         return;
     }
-    write(sock, "print", BUFSIZ);
-    while (fgets(buf, BUFSIZ, result) != NULL) 
-        write(sock, buf, BUFSIZ);
-    write(sock, "done", BUFSIZ);
+    int fd = fileno(result);
+    
+    read(fd, buf, BUFSIZ);
+     
+    //while (fgets(buf, BUFSIZ, result) != NULL) {
+    //while (read(fileno(result), buf, BUFSIZ) != -1) {
+    
+    printf("DEBUG: transferring result: '%s'\n", buf);
+    
+    //write(sock, "print", BUFSIZ);
+    write(sock, buf, BUFSIZ);
+    //write(sock, "done", BUFSIZ);
     pclose(result);
+    close(fd);
 }
 
 void* client_handler(void *vargp) {
@@ -65,14 +78,15 @@ void* client_handler(void *vargp) {
     struct client_args* handler_args = (struct client_args*) vargp;
     int sock = handler_args->sock;
     char buf[BUFSIZ] = {};
+    char cmd[BUFSIZ] = {};
     
     while (read(sock, buf, BUFSIZ) != -1) {
          
         printf("DEBUG: The line is: '%s'\n", buf);
         char* args = strpbrk(buf, " ");
         
+        memset(cmd, '\0', BUFSIZ);
         if (equals("catalog", buf) || prefix("catalog ", buf)) { 
-            char cmd[BUFSIZ] = {};
             strcpy(cmd, "ls $(echo '");
             if (args) strcat(cmd, args);
             strcat(cmd, "')");
@@ -85,9 +99,9 @@ void* client_handler(void *vargp) {
         }
         
         if (equals("bye", buf)) {
-            write(sock, "print", BUFSIZ);
+            //write(sock, "print", BUFSIZ);
             write(sock, "File copy server is down!", BUFSIZ);
-            write(sock, "done", BUFSIZ);
+            //write(sock, "done", BUFSIZ);
             close(sock);
             exit(0);
         }
@@ -97,34 +111,35 @@ void* client_handler(void *vargp) {
         char* dst = strtok(NULL, " ");
         char* trd = strtok(NULL, " ");
         
-        const char* usage; 
+        const char* usage;
         typedef void transfer_func(int, char*, char*);
         void (*transfer)(int, char*, char*);
         
         if (prefix("download", buf)) {
             transfer = (transfer_func*) &download;
-            usage = "usage: download <src> <dst>\n"; 
+            usage = "usage: download <src> <dst>\n";
              
         } else if (prefix("upload", buf)) {
             transfer = (transfer_func*) &upload;
-            usage = "usage: upload <src> <dst>\n"; 
+            usage = "usage: upload <src> <dst>\n";
             
         } else if (equals("", buf)) {
             write(sock, "none", BUFSIZ);
             continue;
             
         } else {
-            write(sock, "print", BUFSIZ);
+            printf("DEBUG: command %s not recognized\n", cmd);
+            //write(sock, "print", BUFSIZ);
             write(sock, "error: command not recognized\n", BUFSIZ);
-            write(sock, "done", BUFSIZ);
+            //write(sock, "done", BUFSIZ);
             continue;
         }
         
         // Incorrect arguments to transfer function
         if (src == NULL || dst == NULL || trd != NULL) {
-            write(sock, "print", BUFSIZ);
+            //write(sock, "print", BUFSIZ);
             write(sock, usage, BUFSIZ);
-            write(sock, "done", BUFSIZ);
+            //write(sock, "done", BUFSIZ);
             continue;
         }
         transfer(sock, src, dst);
