@@ -132,7 +132,8 @@ void input_loop(int sock) {
             system("pwd");
             continue;
         }
-
+        
+        memset(buf, '\0', BUFSIZ);
         write(sock, line, len);
         
         // What is the action to perform?
@@ -170,10 +171,12 @@ void input_loop(int sock) {
             continue;
         }
         
+        printf("%s", buf);
+        
         // The server sent a bad response
         // Let the server know it was a bad response
-        printf("error: invalid response from server\n");
-        printf("DEBUG: %s", buf);
+        //printf("error: invalid response from server\n");
+        //printf("DEBUG: %s", buf);
         
     }
     free(line);
